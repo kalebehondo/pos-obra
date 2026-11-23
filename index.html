@@ -1,0 +1,3365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Casaalta Construções • Engenharia de Pós-Obra</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React & ReactDOM (UMD Produção) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone para compilar JSX direto no navegador -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Fonte Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 12mm 14mm;
+      }
+
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .print-only-container {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: #ffffff !important;
+        overflow: visible !important;
+      }
+
+      .print-page-break-inside-avoid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body class="bg-[#f5f3ef] text-slate-800 antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // ========================================================================
+    // CONFIGURAÇÃO DO BANCO DE DADOS SUPABASE (CASAALTA CONSTRUÇÕES)
+    // ========================================================================
+    const SUPABASE_URL = 'https://wndwibnztflhfvabbdzm.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_zqByip9yKjPHzXoNPIMVKg_q9eOulSr';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      realtime: {
+        params: {
+          eventsPerSecond: 0
+        }
+      }
+    });
+
+    // ========================================================================
+    // COMPONENTE GENÉRICO DE ÍCONES LUCIDE
+    // ========================================================================
+    function Icon({ name, className = 'w-4 h-4' }) {
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        if (!containerRef.current || !window.lucide) return;
+        const pascalName = name
+          .split('-')
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join('');
+        const iconDef = window.lucide.icons?.[pascalName];
+        if (!iconDef) return;
+
+        const svgEl = window.lucide.createElement(iconDef);
+        svgEl.setAttribute('class', className);
+        containerRef.current.innerHTML = '';
+        containerRef.current.appendChild(svgEl);
+      }, [name, className]);
+
+      return <span ref={containerRef} className="inline-flex items-center justify-center flex-shrink-0" />;
+    }
+
+    // ========================================================================
+    // CONSTANTES E DADOS INICIAIS (CASAALTA CONSTRUÇÕES)
+    // ========================================================================
+    const EMPREENDIMENTOS_PERMITIDOS = [
+      'Condomínio Residencial Arboretto',
+      'Condomínio Carlos Drumond de Andrade',
+      'New Wave Nações III',
+      'Condomínio Cecília Meireles',
+      'Residencial Água do Engenho'
+    ];
+
+    const INITIAL_EMPREENDIMENTOS_DOCS = [
+      {
+        id: 'emp-1',
+        nome: 'Condomínio Residencial Arboretto',
+        dataHabiteSe: '2024-08-15',
+        dataEntregaCondominio: '2024-09-20',
+        linkDocumentos: 'https://drive.google.com/drive/folders/casaalta-arboretto-habitese-condominio'
+      },
+      {
+        id: 'emp-2',
+        nome: 'Condomínio Carlos Drumond de Andrade',
+        dataHabiteSe: '2023-11-10',
+        dataEntregaCondominio: '2023-12-18',
+        linkDocumentos: 'https://drive.google.com/drive/folders/casaalta-drumond-habitese-condominio'
+      },
+      {
+        id: 'emp-3',
+        nome: 'New Wave Nações III',
+        dataHabiteSe: '2025-03-05',
+        dataEntregaCondominio: '2025-04-12',
+        linkDocumentos: 'https://drive.google.com/drive/folders/casaalta-newwave3-habitese-condominio'
+      },
+      {
+        id: 'emp-4',
+        nome: 'Condomínio Cecília Meireles',
+        dataHabiteSe: '2025-06-22',
+        dataEntregaCondominio: '2025-07-30',
+        linkDocumentos: 'https://drive.google.com/drive/folders/casaalta-cecilia-habitese-condominio'
+      },
+      {
+        id: 'emp-5',
+        nome: 'Residencial Água do Engenho',
+        dataHabiteSe: '2024-04-18',
+        dataEntregaCondominio: '2024-05-25',
+        linkDocumentos: 'https://drive.google.com/drive/folders/casaalta-agua-engenho-habitese-condominio'
+      }
+    ];
+
+    const CATEGORIAS_TECNICAS = [
+      'Esquadrias e Vedação',
+      'Impermeabilização e Infiltração',
+      'Hidrossanitário',
+      'Elétrico',
+      'Revestimentos e Pintura',
+      'Estrutural e Alvenaria',
+      'Outros'
+    ];
+
+    const STATUS_OPCOES = [
+      'Aberto',
+      'Vistoria Agendada',
+      'Em Execução',
+      'Aguardando Material',
+      'Concluído',
+      'Improcedente / Encerrado'
+    ];
+
+    const ENQUADRAMENTOS_OPCOES = [
+      'Procedente - Garantia Construtora',
+      'Improcedente - Intervenção/Reforma do Proprietário',
+      'Improcedente - Prazo de Garantia Expirado',
+      'Responsabilidade de Manutenção do Condomínio'
+    ];
+
+    const INITIAL_CHAMADOS = [
+      {
+        id: '1',
+        protocolo: 'OS-2026-001',
+        dataAbertura: '2026-10-14',
+        dataPrevista: '2026-10-22',
+        dataEntregaChaves: '2024-10-05',
+        linkTermoRecebimento: 'https://drive.google.com/file/d/termo-recebimento-arboretto-apto645',
+        dataVistoria: '2026-10-16',
+        horarioVistoria: '09:30',
+        dataAgendamento: '2026-10-21',
+        horarioAgendamento: '08:30 às 12:00',
+        empreendimento: 'Condomínio Residencial Arboretto',
+        unidade: 'Torre A - Apto 645',
+        solicitante: 'Mariana Albuquerque',
+        telefone: '(41) 99842-1190',
+        email: 'mariana.albuquerque@exemplo.com.br',
+        categoria: 'Esquadrias e Vedação',
+        status: 'Em Execução',
+        enquadramento: 'Procedente - Garantia Construtora',
+        tecnico: 'Sérgio (Vedação & Esquadrias)',
+        linkFotos: 'https://drive.google.com/drive/folders/casaalta-arboretto-apto645-os001',
+        descricaoSolicitacao: 'Proprietária relata passagem de água e assobio de vento na esquadria de alumínio da suíte master durante chuvas fortes com vento sul.',
+        parecerTecnico: 'Vistoria realizada in loco. Constatada falha pontual na calafetação externa entre o contramarco e a alvenaria na travessa inferior. Enquadra-se na garantia de estanqueidade de esquadrias (ABNT NBR 15575-4 / Manual do Proprietário).',
+        escopoExecucao: 'Remoção do selante antigo degradado na interface externa, limpeza com álcool isopropílico e reaplicação de selante poliuretano (PU 40) cinza com acabamento liso e teste de estanqueidade.'
+      },
+      {
+        id: '2',
+        protocolo: 'OS-2026-002',
+        dataAbertura: '2026-10-18',
+        dataPrevista: '2026-10-25',
+        dataEntregaChaves: '2023-12-18',
+        linkTermoRecebimento: 'https://drive.google.com/file/d/termo-entrega-areas-comuns-drumond',
+        dataVistoria: '2026-10-20',
+        horarioVistoria: '14:00',
+        dataAgendamento: '',
+        horarioAgendamento: 'Realizado no ato da vistoria',
+        empreendimento: 'Condomínio Carlos Drumond de Andrade',
+        unidade: 'Cobertura Duplex 1201 - Terraço',
+        solicitante: 'Carlos Eduardo Siqueira (Zelador)',
+        telefone: '(41) 99104-5532',
+        email: 'administracao.drumond@exemplo.com.br',
+        categoria: 'Impermeabilização e Infiltração',
+        status: 'Improcedente / Encerrado',
+        enquadramento: 'Responsabilidade de Manutenção do Condomínio',
+        tecnico: 'Eng. Felipe Martins',
+        linkFotos: 'https://drive.google.com/drive/folders/casaalta-carlos-drumond-cob1201-os002',
+        descricaoSolicitacao: 'Acúmulo de água pluvial na laje técnica / cobertura após temporal, com receio de transbordamento para a platibanda.',
+        parecerTecnico: 'Em inspeção técnica verificou-se que a manta asfáltica e o caimento do piso estão íntegros. O empoçamento ocorreu exclusivamente devido à obstrução da grelha do ralo hemisférico por folhas secas e detritos trazidos pelo vento. Conforme NBR 5674 e Manual de Uso e Operação, a limpeza periódica de ralos e calhas é rotina de manutenção preventiva do Condomínio.',
+        escopoExecucao: 'Realizada desobstrução orientativa no ato da vistoria junto ao zelador. Orientada a administração condominial a incluir limpeza quinzenal das grelhas de cobertura no plano de manutenção.'
+      },
+      {
+        id: '3',
+        protocolo: 'OS-2026-003',
+        dataAbertura: '2026-10-27',
+        dataPrevista: '2026-11-03',
+        dataEntregaChaves: '2025-04-28',
+        linkTermoRecebimento: 'https://drive.google.com/file/d/termo-recebimento-newwave-apto302',
+        dataVistoria: '2026-10-29',
+        horarioVistoria: '10:00',
+        dataAgendamento: '',
+        horarioAgendamento: 'Não aplicável (Improcedente)',
+        empreendimento: 'New Wave Nações III',
+        unidade: 'Apto 302',
+        solicitante: 'Dr. Roberto Vasconcelos',
+        telefone: '(41) 98761-3340',
+        email: 'roberto.vasconcelos@exemplo.com.br',
+        categoria: 'Impermeabilização e Infiltração',
+        status: 'Improcedente / Encerrado',
+        enquadramento: 'Improcedente - Intervenção/Reforma do Proprietário',
+        tecnico: 'Eng. Felipe Martins',
+        linkFotos: 'https://drive.google.com/drive/folders/casaalta-newwave-apto302-os003',
+        descricaoSolicitacao: 'Mancha de umidade na parte inferior da parede do corredor adjacente ao banheiro social.',
+        parecerTecnico: 'Constatado que o proprietário realizou reforma pós-entrega com substituição completa do revestimento cerâmico original do piso do box por porcelanato de grande formato. Durante o apicoamento/demolição do piso original por equipe terceirizada do cliente, houve perfuração mecânica da manta impermeabilizante. Perda de garantia caracterizada por alteração construtiva (NBR 15575 / Manual do Proprietário, item Impermeabilização).',
+        escopoExecucao: 'Emitido Laudo de Vistoria Técnica fotográfico ao proprietário recomendando a recomposição da impermeabilização na área do box por empresa especializada.'
+      },
+      {
+        id: '4',
+        protocolo: 'OS-2026-004',
+        dataAbertura: '2026-11-04',
+        dataPrevista: '2026-11-21',
+        dataEntregaChaves: '2025-08-14',
+        linkTermoRecebimento: '',
+        dataVistoria: '2026-11-20',
+        horarioVistoria: '15:00',
+        dataAgendamento: '2026-11-21',
+        horarioAgendamento: '14:00 às 17:00',
+        empreendimento: 'Condomínio Cecília Meireles',
+        unidade: 'Torre B - Apto 902',
+        solicitante: 'Fernanda Guedes',
+        telefone: '(41) 99655-8012',
+        email: 'fernanda.guedes@exemplo.com.br',
+        categoria: 'Hidrossanitário',
+        status: 'Vistoria Agendada',
+        enquadramento: 'Procedente - Garantia Construtora',
+        tecnico: 'Marcos (Hidráulica Predial)',
+        linkFotos: '',
+        descricaoSolicitacao: 'Variação brusca de temperatura e baixa vazão no misturador monocomando da ducha da suíte.',
+        parecerTecnico: 'Análise preliminar indica possível obstrução no cartucho do monocomando por partículas residuais da rede ou necessidade de regulagem na válvula redutora de pressão (VRP) do prumada.',
+        escopoExecucao: 'Verificar pressão estática e dinâmica no ponto, desmontar e limpar filtro/cartucho do misturador monocomando Docol e recalibrar VRP do pavimento se necessário.'
+      },
+      {
+        id: '5',
+        protocolo: 'OS-2026-005',
+        dataAbertura: '2026-11-10',
+        dataPrevista: '2026-11-18',
+        dataEntregaChaves: '2024-06-10',
+        linkTermoRecebimento: 'https://drive.google.com/file/d/termo-recebimento-agua-engenho-apto408',
+        dataVistoria: '2026-11-12',
+        horarioVistoria: '09:00',
+        dataAgendamento: '2026-11-17',
+        horarioAgendamento: '08:30 às 16:30',
+        empreendimento: 'Residencial Água do Engenho',
+        unidade: 'Apto 408',
+        solicitante: 'Patrícia & André Lima',
+        telefone: '(41) 99219-4478',
+        email: 'patricia.andre.lima@exemplo.com.br',
+        categoria: 'Revestimentos e Pintura',
+        status: 'Concluído',
+        enquadramento: 'Procedente - Garantia Construtora',
+        tecnico: 'Valdir (Acabamentos)',
+        linkFotos: 'https://drive.google.com/drive/folders/casaalta-agua-engenho-apto408-os005',
+        descricaoSolicitacao: 'Fissura de retração no encontro entre o forro de gesso acartonado e a parede da sala de estar, além de falha pontual de rejunte no box.',
+        parecerTecnico: 'Fissura típica de acomodação/movimentação térmica na junta perimetral drywall/alvenaria, sem comprometimento estrutural. Rejunte cimentício apresentou desgaste precoce no canto do box.',
+        escopoExecucao: 'Abertura em V da junta perimetral, aplicação de selante acrílico pintável flexível e retoque de pintura látex PVA branco neve. No banheiro, remoção do rejunte no encontro piso-parede e aplicação de selante antimofo silicone neutro.'
+      },
+      {
+        id: '6',
+        protocolo: 'OS-2026-006',
+        dataAbertura: '2026-11-19',
+        dataPrevista: '2026-11-26',
+        dataEntregaChaves: '2024-10-05',
+        linkTermoRecebimento: 'https://drive.google.com/file/d/termo-recebimento-arboretto-apto645',
+        dataVistoria: '2026-11-21',
+        horarioVistoria: '10:30',
+        dataAgendamento: '2026-11-25',
+        horarioAgendamento: '09:00 às 11:30',
+        empreendimento: 'Condomínio Residencial Arboretto',
+        unidade: 'Torre A - Apto 645',
+        solicitante: 'Mariana Albuquerque',
+        telefone: '(41) 99842-1190',
+        email: 'mariana.albuquerque@exemplo.com.br',
+        categoria: 'Elétrico',
+        status: 'Aberto',
+        enquadramento: 'Procedente - Garantia Construtora',
+        tecnico: 'Renato (Instalações Elétricas)',
+        linkFotos: 'https://drive.google.com/drive/folders/casaalta-arboretto-apto645-os006',
+        descricaoSolicitacao: 'Disjuntor do circuito de tomadas da varanda gourmet desarmando intermitentemente ao ligar equipamentos.',
+        parecerTecnico: 'Vistoria preliminar agendada para medição de isolação e verificação de aperto nos bornes do quadro de distribuição (QDC).',
+        escopoExecucao: 'Inspeção termográfica e reaperto dos barramentos/disjuntores do QDC e verificação de estanqueidade nas caixas 4x2 externas.'
+      }
+    ];
+
+    // ========================================================================
+    // FUNÇÕES UTILITÁRIAS
+    // ========================================================================
+    const normalizeUrl = (url) => {
+      if (!url) return '';
+      const trimmed = String(url).trim();
+      if (!trimmed) return '';
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      return `https://${trimmed}`;
+    };
+
+    const getShortPhotoLabel = (protocolo, unidade) => {
+      const prot = protocolo?.trim() || 'Novo Chamado';
+      const unid = unidade?.trim() || 'Unidade não informada';
+      return `Fotos — ${prot} (${unid})`;
+    };
+
+    const getShortTermoLabel = (unidade) => {
+      const unid = unidade?.trim() || 'Unidade';
+      return `Termo de Recebimento — ${unid}`;
+    };
+
+    const getShortEmpDocLabel = (nomeEmp) => {
+      return `Docs Habite-se / Entrega — ${nomeEmp}`;
+    };
+
+    const formatDateBR = (dateStr) => {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    };
+
+    const getStatusBadgeStyle = (status) => {
+      switch (status) {
+        case 'Aberto':
+          return 'bg-amber-100 text-amber-900 border-amber-300';
+        case 'Vistoria Agendada':
+          return 'bg-sky-100 text-sky-900 border-sky-300';
+        case 'Em Execução':
+          return 'bg-orange-100 text-orange-900 border-orange-300';
+        case 'Aguardando Material':
+          return 'bg-purple-100 text-purple-900 border-purple-300';
+        case 'Concluído':
+          return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+        case 'Improcedente / Encerrado':
+          return 'bg-slate-200 text-slate-800 border-slate-300';
+        default:
+          return 'bg-stone-100 text-stone-800 border-stone-300';
+      }
+    };
+
+    const getEnquadramentoBadgeStyle = (enquadramento) => {
+      if (enquadramento?.startsWith('Procedente')) {
+        return 'bg-teal-50 text-teal-800 border-teal-200';
+      }
+      if (enquadramento?.includes('Condomínio')) {
+        return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+      }
+      return 'bg-rose-50 text-rose-800 border-rose-200';
+    };
+
+    // ========================================================================
+    // COMPONENTE PRINCIPAL
+    // ========================================================================
+    function App() {
+      const [chamados, setChamados] = useState([]);
+      const [empreendimentosData, setEmpreendimentosData] = useState(INITIAL_EMPREENDIMENTOS_DOCS);
+      const [isLoadingCloud, setIsLoadingCloud] = useState(true);
+      const [cloudError, setCloudError] = useState(null);
+
+      // Navegação e Modais
+      const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'empreendimentos' | 'relatorio'
+      const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+      const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+      const [editingChamado, setEditingChamado] = useState(null);
+      const [editingEmpreendimento, setEditingEmpreendimento] = useState(null);
+      const [osPreviewChamado, setOsPreviewChamado] = useState(null);
+      const [unitHistoryTarget, setUnitHistoryTarget] = useState(null);
+      const [deleteConfirmChamado, setDeleteConfirmChamado] = useState(null);
+      const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+      const [toastMessage, setToastMessage] = useState(null);
+
+      // Filtros do Dashboard
+      const [searchTerm, setSearchTerm] = useState('');
+      const [filterEmpreendimento, setFilterEmpreendimento] = useState('Todos');
+      const [filterStatus, setFilterStatus] = useState('Todos');
+      const [filterEnquadramento, setFilterEnquadramento] = useState('Todos');
+
+      // Filtros do Relatório Gerencial
+      const [repEmpreendimento, setRepEmpreendimento] = useState('Todos');
+      const [repStatus, setRepStatus] = useState('Todos');
+      const [repEnquadramento, setRepEnquadramento] = useState('Todos');
+      const [repDataInicio, setRepDataInicio] = useState('');
+      const [repDataFim, setRepDataFim] = useState('');
+
+      const fileInputRef = useRef(null);
+
+      const sortChamadosList = (list) => {
+        return [...list].sort((a, b) => {
+          const protComp = (b.protocolo || '').localeCompare(a.protocolo || '');
+          if (protComp !== 0) return protComp;
+          return (b.dataAbertura || '').localeCompare(a.dataAbertura || '');
+        });
+      };
+
+      // Carregamento inicial + escuta em tempo real no Supabase
+      const fetchCloudData = async (seedIfEmpty = true) => {
+        try {
+          const [chamadosRes, empRes] = await Promise.all([
+            supabaseClient.from('chamados').select('*'),
+            supabaseClient.from('empreendimentos').select('*')
+          ]);
+
+          if (chamadosRes.error) {
+            throw new Error(
+              `Erro na tabela "chamados": ${chamadosRes.error.message}. Verifique se o SQL das tabelas foi executado no Supabase.`
+            );
+          }
+
+          if (empRes.error) {
+            throw new Error(
+              `Erro na tabela "empreendimentos": ${empRes.error.message}. Verifique se o SQL das tabelas foi executado no Supabase.`
+            );
+          }
+
+          let loadedChamados = chamadosRes.data || [];
+          if (loadedChamados.length === 0 && seedIfEmpty) {
+            const { error: seedChamErr } = await supabaseClient
+              .from('chamados')
+              .insert(INITIAL_CHAMADOS);
+            if (!seedChamErr) {
+              loadedChamados = INITIAL_CHAMADOS;
+            }
+          }
+
+          let loadedEmps = empRes.data || [];
+          if (loadedEmps.length === 0 && seedIfEmpty) {
+            const { error: seedEmpErr } = await supabaseClient
+              .from('empreendimentos')
+              .insert(INITIAL_EMPREENDIMENTOS_DOCS);
+            if (!seedEmpErr) {
+              loadedEmps = INITIAL_EMPREENDIMENTOS_DOCS;
+            }
+          }
+
+          const loadedMap = new Map();
+          loadedEmps.forEach((emp) => {
+            if (emp?.nome) loadedMap.set(emp.nome, emp);
+          });
+          const mergedEmps = INITIAL_EMPREENDIMENTOS_DOCS.map((base) =>
+            loadedMap.has(base.nome) ? loadedMap.get(base.nome) : base
+          );
+
+          setChamados(sortChamadosList(loadedChamados));
+          setEmpreendimentosData(mergedEmps);
+          setCloudError(null);
+        } catch (err) {
+          console.error('Erro ao conectar ao Supabase:', err);
+          setCloudError(err.message || 'Não foi possível conectar ao Supabase.');
+        } finally {
+          setIsLoadingCloud(false);
+        }
+      };
+
+      useEffect(() => {
+        fetchCloudData(true);
+
+        // Sincronização periódica via HTTPS (compatível com Canvas, GitHub Pages e Google Sites sem bloqueio de WebSocket)
+        const syncInterval = setInterval(() => {
+          fetchCloudData(false);
+        }, 15000);
+
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            fetchCloudData(false);
+          }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+          clearInterval(syncInterval);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+      }, []);
+
+      const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 3500);
+      };
+
+      const empreendimentosDisponiveis = EMPREENDIMENTOS_PERMITIDOS;
+
+      const empreendimentoByName = useMemo(() => {
+        const map = {};
+        empreendimentosData.forEach((emp) => {
+          map[emp.nome] = emp;
+        });
+        return map;
+      }, [empreendimentosData]);
+
+      const gerarProximoProtocolo = () => {
+        const year = new Date().getFullYear();
+        let maxNum = 0;
+        chamados.forEach((c) => {
+          const match = c.protocolo?.match(/OS-\d{4}-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+          }
+        });
+        return `OS-${year}-${String(maxNum + 1).padStart(3, '0')}`;
+      };
+
+      const kpis = useMemo(() => {
+        const total = chamados.length;
+        const abertosVistoria = chamados.filter(
+          (c) => c.status === 'Aberto' || c.status === 'Vistoria Agendada'
+        ).length;
+        const emExecucao = chamados.filter(
+          (c) => c.status === 'Em Execução' || c.status === 'Aguardando Material'
+        ).length;
+        const concluidos = chamados.filter((c) => c.status === 'Concluído').length;
+        const improcedentes = chamados.filter(
+          (c) =>
+            c.status === 'Improcedente / Encerrado' ||
+            c.enquadramento?.startsWith('Improcedente') ||
+            c.enquadramento?.includes('Condomínio')
+        ).length;
+
+        return { total, abertosVistoria, emExecucao, concluidos, improcedentes };
+      }, [chamados]);
+
+      const filteredChamados = useMemo(() => {
+        return chamados.filter((c) => {
+          const matchSearch =
+            !searchTerm ||
+            c.protocolo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.empreendimento?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.unidade?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            c.solicitante?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            c.descricaoSolicitacao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (c.tecnico && c.tecnico.toLowerCase().includes(searchTerm.toLowerCase()));
+
+          const matchEmp =
+            filterEmpreendimento === 'Todos' || c.empreendimento === filterEmpreendimento;
+          const matchStatus = filterStatus === 'Todos' || c.status === filterStatus;
+          const matchEnq =
+            filterEnquadramento === 'Todos' ||
+            (filterEnquadramento === 'Procedente' && c.enquadramento?.startsWith('Procedente')) ||
+            (filterEnquadramento === 'Improcedente' && c.enquadramento?.startsWith('Improcedente')) ||
+            (filterEnquadramento === 'Condomínio' && c.enquadramento?.includes('Condomínio'));
+
+          return matchSearch && matchEmp && matchStatus && matchEnq;
+        });
+      }, [chamados, searchTerm, filterEmpreendimento, filterStatus, filterEnquadramento]);
+
+      const relatorioChamados = useMemo(() => {
+        return chamados.filter((c) => {
+          const matchEmp = repEmpreendimento === 'Todos' || c.empreendimento === repEmpreendimento;
+          const matchStatus = repStatus === 'Todos' || c.status === repStatus;
+          const matchEnq = repEnquadramento === 'Todos' || c.enquadramento === repEnquadramento;
+          const matchInicio = !repDataInicio || c.dataAbertura >= repDataInicio;
+          const matchFim = !repDataFim || c.dataAbertura <= repDataFim;
+          return matchEmp && matchStatus && matchEnq && matchInicio && matchFim;
+        });
+      }, [chamados, repEmpreendimento, repStatus, repEnquadramento, repDataInicio, repDataFim]);
+
+      const relatorioStats = useMemo(() => {
+        const total = relatorioChamados.length;
+        const byStatus = {};
+        STATUS_OPCOES.forEach((s) => (byStatus[s] = 0));
+
+        const byEnqResumo = {
+          'Garantia Construtora (Procedente)': 0,
+          'Improcedente (Reforma / Prazo)': 0,
+          'Manutenção Condomínio': 0
+        };
+
+        const byCategoria = {};
+        CATEGORIAS_TECNICAS.forEach((cat) => (byCategoria[cat] = 0));
+
+        relatorioChamados.forEach((c) => {
+          byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+          byCategoria[c.categoria] = (byCategoria[c.categoria] || 0) + 1;
+
+          if (c.enquadramento?.startsWith('Procedente')) {
+            byEnqResumo['Garantia Construtora (Procedente)'] += 1;
+          } else if (c.enquadramento?.includes('Condomínio')) {
+            byEnqResumo['Manutenção Condomínio'] += 1;
+          } else {
+            byEnqResumo['Improcedente (Reforma / Prazo)'] += 1;
+          }
+        });
+
+        return { total, byStatus, byEnqResumo, byCategoria };
+      }, [relatorioChamados]);
+
+      // Ações CRUD Supabase
+      const handleOpenNewModal = () => {
+        setEditingChamado(null);
+        setIsFormModalOpen(true);
+        setMobileMenuOpen(false);
+      };
+
+      const handleOpenEditModal = (chamado) => {
+        setEditingChamado(chamado);
+        setIsFormModalOpen(true);
+      };
+
+      const handleSaveChamado = async (formData) => {
+        const docId = editingChamado ? editingChamado.id : String(Date.now());
+        const normalizedData = {
+          ...formData,
+          id: docId,
+          linkFotos: normalizeUrl(formData.linkFotos),
+          linkTermoRecebimento: normalizeUrl(formData.linkTermoRecebimento)
+        };
+
+        const { error } = await supabaseClient
+          .from('chamados')
+          .upsert(normalizedData, { onConflict: 'id' });
+
+        if (error) {
+          console.error('Erro ao salvar no Supabase:', error);
+          showToast(`Erro ao salvar: ${error.message}`);
+          return;
+        }
+
+        setChamados((prev) => {
+          const exists = prev.some((c) => c.id === docId);
+          const updated = exists
+            ? prev.map((c) => (c.id === docId ? normalizedData : c))
+            : [normalizedData, ...prev];
+          return sortChamadosList(updated);
+        });
+
+        showToast(
+          editingChamado
+            ? `Chamado ${normalizedData.protocolo} atualizado no Supabase.`
+            : `Chamado ${normalizedData.protocolo} salvo no Supabase com sucesso.`
+        );
+        setIsFormModalOpen(false);
+        setEditingChamado(null);
+      };
+
+      const handleSaveEmpreendimento = async (empFormData) => {
+        const normalizedEmp = {
+          ...empFormData,
+          linkDocumentos: normalizeUrl(empFormData.linkDocumentos)
+        };
+
+        const { error } = await supabaseClient
+          .from('empreendimentos')
+          .upsert(normalizedEmp, { onConflict: 'id' });
+
+        if (error) {
+          console.error('Erro ao salvar empreendimento:', error);
+          showToast(`Erro ao salvar empreendimento: ${error.message}`);
+          return;
+        }
+
+        setEmpreendimentosData((prev) =>
+          prev.map((e) => (e.id === normalizedEmp.id ? normalizedEmp : e))
+        );
+        showToast(`Dados de ${normalizedEmp.nome} atualizados na nuvem.`);
+        setEditingEmpreendimento(null);
+      };
+
+      const handleDeleteChamado = async () => {
+        if (!deleteConfirmChamado) return;
+        const target = deleteConfirmChamado;
+        const { error } = await supabaseClient.from('chamados').delete().eq('id', target.id);
+
+        if (error) {
+          console.error('Erro ao excluir:', error);
+          showToast(`Erro ao excluir: ${error.message}`);
+        } else {
+          setChamados((prev) => prev.filter((c) => c.id !== target.id));
+          showToast(`Chamado ${target.protocolo} excluído da nuvem.`);
+        }
+        setDeleteConfirmChamado(null);
+      };
+
+      const handleRestoreDefaults = async () => {
+        try {
+          await supabaseClient.from('chamados').delete().neq('id', '__never__');
+          const { error } = await supabaseClient.from('chamados').insert(INITIAL_CHAMADOS);
+          if (error) throw error;
+          setChamados(sortChamadosList(INITIAL_CHAMADOS));
+          showToast('Dados de exemplo da Casaalta Construções restaurados na nuvem.');
+        } catch (err) {
+          console.error('Erro ao restaurar exemplos:', err);
+          showToast('Erro ao restaurar dados de exemplo.');
+        } finally {
+          setRestoreConfirmOpen(false);
+        }
+      };
+
+      const handleExportJSON = () => {
+        const dataStr = JSON.stringify(chamados, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `casaalta_pos_obra_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Backup JSON exportado com sucesso.');
+      };
+
+      const handleImportJSON = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const parsed = JSON.parse(event.target.result);
+            if (!Array.isArray(parsed)) {
+              showToast('Arquivo JSON inválido: formato incorreto.');
+              return;
+            }
+            const formatted = parsed.map((item, idx) => ({
+              ...item,
+              id: String(item.id || `${Date.now()}_${idx}`),
+              linkFotos: normalizeUrl(item.linkFotos),
+              linkTermoRecebimento: normalizeUrl(item.linkTermoRecebimento)
+            }));
+
+            const { error } = await supabaseClient
+              .from('chamados')
+              .upsert(formatted, { onConflict: 'id' });
+
+            if (error) throw error;
+            await fetchCloudData(false);
+            showToast(`${formatted.length} chamados importados e sincronizados no Supabase.`);
+          } catch (err) {
+            console.error('Erro na importação JSON:', err);
+            showToast('Erro ao importar arquivo JSON para o Supabase.');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      };
+
+      const handleExportCSV = () => {
+        const headers = [
+          'Protocolo',
+          'Data Abertura',
+          'Data Prevista/Conclusão',
+          'Entrega das Chaves',
+          'Empreendimento',
+          'Unidade',
+          'Solicitante',
+          'Telefone',
+          'E-mail',
+          'Categoria',
+          'Status',
+          'Enquadramento',
+          'Técnico',
+          'Link Fotos Drive',
+          'Solicitação',
+          'Parecer Técnico',
+          'Escopo Execução'
+        ];
+
+        const escapeCSV = (val) => {
+          const str = String(val || '').replace(/"/g, '""').replace(/\r?\n/g, ' ');
+          return `"${str}"`;
+        };
+
+        const rows = relatorioChamados.map((c) =>
+          [
+            c.protocolo,
+            formatDateBR(c.dataAbertura),
+            formatDateBR(c.dataPrevista),
+            formatDateBR(c.dataEntregaChaves),
+            c.empreendimento,
+            c.unidade,
+            c.solicitante,
+            c.telefone,
+            c.email,
+            c.categoria,
+            c.status,
+            c.enquadramento,
+            c.tecnico,
+            c.linkFotos ? normalizeUrl(c.linkFotos) : '',
+            c.descricaoSolicitacao,
+            c.parecerTecnico,
+            c.escopoExecucao
+          ]
+            .map(escapeCSV)
+            .join(';')
+        );
+
+        const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `relatorio_pos_obra_casaalta_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Relatório CSV (Excel) exportado com sucesso.');
+      };
+
+      const triggerPrint = () => {
+        window.print();
+      };
+
+      return (
+        <div className="min-h-screen bg-[#f5f3ef] text-slate-800 font-sans antialiased flex flex-col lg:flex-row">
+          {/* BARRA LATERAL DE NAVEGAÇÃO */}
+          <aside
+            className={`no-print bg-[#13293d] text-stone-100 w-full lg:w-72 lg:min-h-screen flex-shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 z-30 ${
+              osPreviewChamado ? 'hidden' : ''
+            }`}
+          >
+            <div>
+              <div className="p-5 lg:p-6 border-b border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#c26d43] flex items-center justify-center shadow-inner text-white font-bold text-lg tracking-tight">
+                    CA
+                  </div>
+                  <div>
+                    <h1 className="text-base font-bold tracking-wide text-white leading-tight">
+                      CASAALTA
+                    </h1>
+                    <p className="text-[11px] uppercase tracking-widest text-stone-300/80 font-medium">
+                      Engenharia de Pós-Obra
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="lg:hidden p-2 rounded-lg text-stone-300 hover:bg-white/10"
+                  aria-label="Abrir Menu"
+                >
+                  <Icon name="menu" className="w-6 h-6" />
+                </button>
+              </div>
+
+              <nav className={`${mobileMenuOpen ? 'block' : 'hidden'} lg:block p-4 space-y-1.5`}>
+                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+                  Operação & Controle
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#1e3f5a] text-white shadow-sm border-l-4 border-[#d97742]'
+                      : 'text-stone-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Icon name="clipboard-list" className="w-4 h-4 text-[#e08b5b]" />
+                  Dashboard & Chamados
+                </button>
+
+                <button
+                  onClick={handleOpenNewModal}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium text-stone-300 hover:bg-white/5 hover:text-white transition-all"
+                >
+                  <Icon name="plus-circle" className="w-4 h-4 text-emerald-400" />
+                  Novo Chamado / OS
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('empreendimentos');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'empreendimentos'
+                      ? 'bg-[#1e3f5a] text-white shadow-sm border-l-4 border-[#d97742]'
+                      : 'text-stone-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Icon name="landmark" className="w-4 h-4 text-amber-300" />
+                  Empreendimentos & Habite-se
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveTab('relatorio');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'relatorio'
+                      ? 'bg-[#1e3f5a] text-white shadow-sm border-l-4 border-[#d97742]'
+                      : 'text-stone-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <Icon name="file-bar-chart-2" className="w-4 h-4 text-sky-400" />
+                  Relatório Gerencial
+                </button>
+
+                <div className="pt-5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+                  Sincronização & Backup
+                </div>
+
+                <button
+                  onClick={handleExportJSON}
+                  className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium text-stone-300 hover:bg-white/5 hover:text-white transition-all"
+                >
+                  <Icon name="download" className="w-4 h-4 text-stone-400" />
+                  Exportar Backup JSON
+                </button>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium text-stone-300 hover:bg-white/5 hover:text-white transition-all"
+                >
+                  <Icon name="upload" className="w-4 h-4 text-stone-400" />
+                  Importar Backup JSON
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportJSON}
+                  className="hidden"
+                />
+
+                <button
+                  onClick={() => setRestoreConfirmOpen(true)}
+                  className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs font-medium text-amber-300/90 hover:bg-white/5 hover:text-amber-200 transition-all"
+                >
+                  <Icon name="rotate-ccw" className="w-4 h-4" />
+                  Restaurar Dados de Exemplo
+                </button>
+              </nav>
+            </div>
+
+            <div className={`${mobileMenuOpen ? 'block' : 'hidden'} lg:block p-4 border-t border-white/10 text-xs text-stone-400 space-y-2.5`}>
+              <div className="bg-emerald-950/50 rounded-lg p-2.5 border border-emerald-500/30 flex items-center justify-between">
+                <span className="font-semibold text-emerald-200 flex items-center gap-1.5 text-[11px]">
+                  <Icon name="cloud" className="w-3.5 h-3.5 text-emerald-400" />
+                  {isLoadingCloud ? 'Conectando...' : 'Supabase Conectado'}
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+
+              <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                <p className="font-semibold text-stone-200 flex items-center gap-1.5">
+                  <Icon name="shield-check" className="w-3.5 h-3.5 text-[#d97742]" />
+                  Normativa ABNT NBR 15575
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-stone-400">
+                  Controle de assistência técnica, garantias e emissão de Ordens de Serviço.
+                </p>
+              </div>
+            </div>
+          </aside>
+
+          {/* CONTEÚDO PRINCIPAL */}
+          <main
+            className={`flex-1 min-w-0 ${
+              osPreviewChamado ? 'hidden print:hidden' : 'p-4 sm:p-6 lg:p-8'
+            }`}
+          >
+            {toastMessage && (
+              <div className="no-print fixed bottom-5 right-5 z-50 bg-[#13293d] text-white px-4 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center gap-2.5 text-sm">
+                <Icon name="check-circle-2" className="w-4 h-4 text-emerald-400" />
+                <span>{toastMessage}</span>
+              </div>
+            )}
+
+            {/* ABA 1: DASHBOARD & CHAMADOS */}
+            {activeTab === 'dashboard' && (
+              <div className="max-w-7xl mx-auto space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b85d32]">
+                      <Icon name="building-2" className="w-3.5 h-3.5" />
+                      Casaalta Construções • Assistência Técnica
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                      Controle de Chamados Pós-Obra
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-0.5">
+                      Acompanhamento de solicitações, pareceres de engenharia e ordens de serviço.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      onClick={() => setActiveTab('relatorio')}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50 transition shadow-sm"
+                    >
+                      <Icon name="file-bar-chart-2" className="w-4 h-4 text-slate-600" />
+                      Relatório Gerencial
+                    </button>
+                    <button
+                      onClick={handleOpenNewModal}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#13293d] text-white text-sm font-medium hover:bg-[#1c3b57] transition shadow-sm"
+                    >
+                      <Icon name="plus-circle" className="w-4 h-4 text-[#e08b5b]" />
+                      Abrir Novo Chamado
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cards de KPIs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                  <div className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Total de Chamados
+                      </span>
+                      <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
+                        <Icon name="clipboard-list" className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-slate-900 mt-2">{kpis.total}</p>
+                    <p className="text-xs text-slate-500 mt-1">Registros ativos na base</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Abertos / Vistoria
+                      </span>
+                      <div className="p-2 rounded-lg bg-amber-50 text-amber-700">
+                        <Icon name="clock" className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-800 mt-2">{kpis.abertosVistoria}</p>
+                    <p className="text-xs text-slate-500 mt-1">Aguardando diagnóstico técnico</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Em Execução
+                      </span>
+                      <div className="p-2 rounded-lg bg-orange-50 text-[#c26d43]">
+                        <Icon name="wrench" className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-[#b85d32] mt-2">{kpis.emExecucao}</p>
+                    <p className="text-xs text-slate-500 mt-1">Em reparo ou aguardando insumo</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Concluídos
+                      </span>
+                      <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
+                        <Icon name="check-circle-2" className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-800 mt-2">{kpis.concluidos}</p>
+                    <p className="text-xs text-slate-500 mt-1">Atendimentos finalizados</p>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-4 border border-stone-200/90 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Improced. / Condomínio
+                      </span>
+                      <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
+                        <Icon name="shield-alert" className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold text-slate-700 mt-2">{kpis.improcedentes}</p>
+                    <p className="text-xs text-slate-500 mt-1">Fora de garantia ou manutenção</p>
+                  </div>
+                </div>
+
+                {/* Barra de Busca e Filtros */}
+                <div className="bg-white rounded-xl p-4 border border-stone-200 shadow-sm space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div className="md:col-span-4 relative">
+                      <span className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2">
+                        <Icon name="search" className="w-4 h-4" />
+                      </span>
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Buscar protocolo, unidade, cliente, técnico..."
+                        className="w-full pl-10 pr-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#13293d]/20 focus:border-[#13293d]"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <select
+                        value={filterEmpreendimento}
+                        onChange={(e) => setFilterEmpreendimento(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#13293d]/20 focus:border-[#13293d]"
+                      >
+                        <option value="Todos">Empreendimento: Todos</option>
+                        {empreendimentosDisponiveis.map((emp) => (
+                          <option key={emp} value={emp}>
+                            {emp}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#13293d]/20 focus:border-[#13293d]"
+                      >
+                        <option value="Todos">Status: Todos</option>
+                        {STATUS_OPCOES.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <select
+                        value={filterEnquadramento}
+                        onChange={(e) => setFilterEnquadramento(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#13293d]/20 focus:border-[#13293d]"
+                      >
+                        <option value="Todos">Garantia: Todos</option>
+                        <option value="Procedente">Em Garantia (Procedente)</option>
+                        <option value="Improcedente">Improcedente / Reforma</option>
+                        <option value="Condomínio">Manutenção Condomínio</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {(searchTerm ||
+                    filterEmpreendimento !== 'Todos' ||
+                    filterStatus !== 'Todos' ||
+                    filterEnquadramento !== 'Todos') && (
+                    <div className="flex items-center justify-between pt-1 text-xs text-slate-500">
+                      <span>
+                        Exibindo <strong>{filteredChamados.length}</strong> de {chamados.length} chamados
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setFilterEmpreendimento('Todos');
+                          setFilterStatus('Todos');
+                          setFilterEnquadramento('Todos');
+                        }}
+                        className="text-[#b85d32] hover:underline font-medium"
+                      >
+                        Limpar filtros
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Listagem de Chamados */}
+                {isLoadingCloud ? (
+                  <div className="bg-white rounded-xl p-12 border border-stone-200 text-center">
+                    <div className="inline-block animate-spin text-[#13293d] mb-3">
+                      <Icon name="loader-2" className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-800">
+                      Sincronizando chamados no Supabase...
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Carregando os registros mais recentes da Casaalta Construções.
+                    </p>
+                  </div>
+                ) : cloudError ? (
+                  <div className="bg-rose-50 rounded-xl p-8 border border-rose-200 text-center space-y-2">
+                    <Icon name="alert-triangle" className="w-8 h-8 text-rose-700 mx-auto" />
+                    <h3 className="text-base font-semibold text-rose-900">Atenção na Conexão</h3>
+                    <p className="text-sm text-rose-700 max-w-xl mx-auto">{cloudError}</p>
+                    <button
+                      onClick={() => {
+                        setIsLoadingCloud(true);
+                        fetchCloudData(true);
+                      }}
+                      className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800"
+                    >
+                      Tentar Novamente
+                    </button>
+                  </div>
+                ) : filteredChamados.length === 0 ? (
+                  <div className="bg-white rounded-xl p-12 border border-stone-200 text-center">
+                    <div className="w-12 h-12 rounded-full bg-stone-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <Icon name="clipboard-list" className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-800">
+                      Nenhum chamado encontrado
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                      Nenhum registro corresponde aos filtros aplicados no momento. Ajuste os critérios ou abra um novo chamado.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredChamados.map((chamado) => {
+                      const unitHistoryCount = chamados.filter(
+                        (c) =>
+                          c.empreendimento?.trim().toLowerCase() ===
+                            chamado.empreendimento?.trim().toLowerCase() &&
+                          c.unidade?.trim().toLowerCase() === chamado.unidade?.trim().toLowerCase()
+                      ).length;
+                      const normalizedLink = normalizeUrl(chamado.linkFotos);
+                      const normalizedTermoLink = normalizeUrl(chamado.linkTermoRecebimento);
+                      const empInfo = empreendimentoByName[chamado.empreendimento];
+
+                      return (
+                        <div
+                          key={chamado.id}
+                          className="bg-white rounded-xl border border-stone-200/90 shadow-sm hover:border-slate-300 transition p-4 sm:p-5"
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                            <div className="space-y-2.5 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs font-bold px-2.5 py-1 rounded bg-[#13293d] text-white">
+                                  {chamado.protocolo}
+                                </span>
+                                <span className="text-xs text-slate-500 flex items-center gap-1 bg-stone-100 px-2 py-0.5 rounded">
+                                  <Icon name="calendar" className="w-3 h-3" />
+                                  Abertura: {formatDateBR(chamado.dataAbertura)}
+                                </span>
+                                <span
+                                  className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${getStatusBadgeStyle(
+                                    chamado.status
+                                  )}`}
+                                >
+                                  {chamado.status}
+                                </span>
+                                <span
+                                  className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${getEnquadramentoBadgeStyle(
+                                    chamado.enquadramento
+                                  )}`}
+                                >
+                                  {chamado.enquadramento}
+                                </span>
+                              </div>
+
+                              <div>
+                                <h3 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
+                                  <span>{chamado.empreendimento}</span>
+                                  <span className="text-slate-300">•</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setUnitHistoryTarget({
+                                        empreendimento: chamado.empreendimento,
+                                        unidade: chamado.unidade
+                                      })
+                                    }
+                                    title="Clique para ver o Dossiê / Histórico Consolidado desta unidade"
+                                    className="inline-flex items-center gap-1.5 text-[#13293d] hover:text-[#b85d32] font-semibold underline decoration-dotted underline-offset-4 transition text-left"
+                                  >
+                                    <span>{chamado.unidade}</span>
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-slate-700 border border-stone-200 no-underline">
+                                      <Icon name="history" className="w-3 h-3 text-[#c26d43]" />
+                                      Histórico ({unitHistoryCount})
+                                    </span>
+                                  </button>
+                                </h3>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 mt-1.5">
+                                  <span className="flex items-center gap-1">
+                                    <Icon name="user" className="w-3.5 h-3.5 text-slate-400" />
+                                    Solicitante: <strong>{chamado.solicitante}</strong>
+                                  </span>
+                                  {chamado.telefone && (
+                                    <span className="flex items-center gap-1">
+                                      <Icon name="phone" className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>{chamado.telefone}</span>
+                                    </span>
+                                  )}
+                                  {chamado.email && (
+                                    <a
+                                      href={`mailto:${chamado.email}`}
+                                      className="inline-flex items-center gap-1 text-slate-600 hover:text-[#13293d] underline decoration-dotted underline-offset-2 transition"
+                                    >
+                                      <Icon name="mail" className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>{chamado.email}</span>
+                                    </a>
+                                  )}
+                                  <span className="flex items-center gap-1">
+                                    <Icon name="wrench" className="w-3.5 h-3.5 text-slate-400" />
+                                    Categoria: <strong>{chamado.categoria}</strong>
+                                  </span>
+                                  {chamado.tecnico && (
+                                    <span className="flex items-center gap-1">
+                                      <Icon name="users" className="w-3.5 h-3.5 text-slate-400" />
+                                      Responsável: <strong>{chamado.tecnico}</strong>
+                                    </span>
+                                  )}
+                                  {empInfo?.dataHabiteSe && (
+                                    <span className="flex items-center gap-1 text-slate-600">
+                                      <Icon name="landmark" className="w-3.5 h-3.5 text-slate-400" />
+                                      Habite-se: <strong>{formatDateBR(empInfo.dataHabiteSe)}</strong>
+                                    </span>
+                                  )}
+                                  {empInfo?.dataEntregaCondominio && (
+                                    <span className="flex items-center gap-1 text-slate-600">
+                                      <Icon name="building-2" className="w-3.5 h-3.5 text-slate-400" />
+                                      Entrega Cond.:{' '}
+                                      <strong>{formatDateBR(empInfo.dataEntregaCondominio)}</strong>
+                                    </span>
+                                  )}
+                                  {chamado.dataEntregaChaves && (
+                                    <span className="flex items-center gap-1 text-slate-600">
+                                      <Icon name="key-round" className="w-3.5 h-3.5 text-amber-600" />
+                                      Chaves: <strong>{formatDateBR(chamado.dataEntregaChaves)}</strong>
+                                    </span>
+                                  )}
+                                  {normalizedLink && (
+                                    <a
+                                      href={normalizedLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={normalizedLink}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100 font-semibold transition"
+                                    >
+                                      <Icon name="camera" className="w-3.5 h-3.5 text-sky-700" />
+                                      <span>
+                                        {getShortPhotoLabel(chamado.protocolo, chamado.unidade)}
+                                      </span>
+                                      <Icon name="external-link" className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                  {normalizedTermoLink && (
+                                    <a
+                                      href={normalizedTermoLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={normalizedTermoLink}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-semibold transition"
+                                    >
+                                      <Icon name="file-check-2" className="w-3.5 h-3.5 text-emerald-700" />
+                                      <span>{getShortTermoLabel(chamado.unidade)}</span>
+                                      <Icon name="external-link" className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <div className="bg-stone-50/80 rounded-lg p-3 border border-stone-200/70">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                                    Solicitação do Cliente
+                                  </p>
+                                  <p className="text-xs text-slate-700 leading-relaxed line-clamp-2">
+                                    {chamado.descricaoSolicitacao}
+                                  </p>
+                                </div>
+                                <div className="bg-slate-50/80 rounded-lg p-3 border border-slate-200/70">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                                    Parecer Técnico / Diagnóstico
+                                  </p>
+                                  <p className="text-xs text-slate-700 leading-relaxed line-clamp-2">
+                                    {chamado.parecerTecnico || 'Aguardando vistoria técnica em campo.'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-row flex-wrap lg:flex-col items-center lg:items-end justify-end gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-stone-100 flex-shrink-0">
+                              <button
+                                onClick={() => setOsPreviewChamado(chamado)}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#13293d] text-white text-xs font-semibold hover:bg-[#1e3f5a] transition shadow-sm"
+                              >
+                                <Icon name="file-text" className="w-3.5 h-3.5 text-[#e08b5b]" />
+                                Gerar OS
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  setUnitHistoryTarget({
+                                    empreendimento: chamado.empreendimento,
+                                    unidade: chamado.unidade
+                                  })
+                                }
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-50/80 text-amber-900 border border-amber-200 text-xs font-medium hover:bg-amber-100/70 transition"
+                              >
+                                <Icon name="history" className="w-3.5 h-3.5 text-[#c26d43]" />
+                                Histórico Unidade
+                              </button>
+
+                              <button
+                                onClick={() => handleOpenEditModal(chamado)}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-stone-100 text-slate-800 border border-stone-300 text-xs font-medium hover:bg-stone-200/70 transition"
+                              >
+                                <Icon name="edit-3" className="w-3.5 h-3.5 text-slate-600" />
+                                Editar / Parecer
+                              </button>
+
+                              <button
+                                onClick={() => setDeleteConfirmChamado(chamado)}
+                                className="inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-rose-700 hover:bg-rose-50 text-xs font-medium transition"
+                                title="Excluir Chamado"
+                              >
+                                <Icon name="trash-2" className="w-3.5 h-3.5" />
+                                <span className="sm:hidden lg:inline">Excluir</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ABA 2: EMPREENDIMENTOS & HABITE-SE */}
+            {activeTab === 'empreendimentos' && (
+              <div className="max-w-7xl mx-auto space-y-6">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b85d32]">
+                    <Icon name="landmark" className="w-3.5 h-3.5" />
+                    Marcos Legais & Garantias (ABNT NBR 15575)
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                    Empreendimentos & Habite-se
+                  </h2>
+                  <p className="text-sm text-slate-600 mt-0.5">
+                    Configure a data do Habite-se, entrega do condomínio e pasta de documentos oficiais de cada empreendimento. Essas datas são vinculadas automaticamente aos chamados.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {empreendimentosData.map((emp) => {
+                    const chamadosEmpCount = chamados.filter(
+                      (c) => c.empreendimento === emp.nome
+                    ).length;
+                    const docUrl = normalizeUrl(emp.linkDocumentos);
+
+                    return (
+                      <div
+                        key={emp.id}
+                        className="bg-white rounded-xl border border-stone-200 shadow-sm p-5 flex flex-col justify-between gap-4 hover:border-slate-300 transition"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b85d32]">
+                                Empreendimento Casaalta
+                              </span>
+                              <h3 className="text-lg font-bold text-slate-900 mt-0.5">{emp.nome}</h3>
+                            </div>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-slate-700 border border-stone-200 flex-shrink-0">
+                              {chamadosEmpCount} {chamadosEmpCount === 1 ? 'chamado' : 'chamados'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="bg-stone-50 rounded-lg p-3 border border-stone-200/80">
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+                                Data do Habite-se
+                              </span>
+                              <span className="text-sm font-bold text-slate-900 mt-1 block">
+                                {emp.dataHabiteSe ? formatDateBR(emp.dataHabiteSe) : 'Não informada'}
+                              </span>
+                            </div>
+
+                            <div className="bg-stone-50 rounded-lg p-3 border border-stone-200/80">
+                              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+                                Entrega do Condomínio
+                              </span>
+                              <span className="text-sm font-bold text-slate-900 mt-1 block">
+                                {emp.dataEntregaCondominio
+                                  ? formatDateBR(emp.dataEntregaCondominio)
+                                  : 'Não informada'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-1">
+                            {docUrl ? (
+                              <a
+                                href={docUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={docUrl}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100 text-xs font-semibold transition"
+                              >
+                                <Icon name="folder-open" className="w-3.5 h-3.5 text-sky-700" />
+                                <span>{getShortEmpDocLabel(emp.nome)}</span>
+                                <Icon name="external-link" className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">
+                                Nenhum link de documentação anexado
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-stone-100 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditingEmpreendimento(emp)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#13293d] text-white text-xs font-semibold hover:bg-[#1e3f5a] transition"
+                          >
+                            <Icon name="edit-3" className="w-3.5 h-3.5 text-[#e08b5b]" />
+                            Editar Datas e Documentos
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ABA 3: RELATÓRIO GERENCIAL */}
+            {activeTab === 'relatorio' && (
+              <div className="max-w-7xl mx-auto space-y-6">
+                <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b85d32]">
+                      <Icon name="file-bar-chart-2" className="w-3.5 h-3.5" />
+                      Engenharia & Diretoria
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
+                      Relatório Gerencial de Pós-Obra
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-0.5">
+                      Consolidação de indicadores técnicos, enquadramentos de garantia e histórico analítico.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      onClick={handleExportCSV}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50 transition shadow-sm"
+                    >
+                      <Icon name="file-spreadsheet" className="w-4 h-4 text-emerald-700" />
+                      Exportar CSV (Excel)
+                    </button>
+                    <button
+                      onClick={triggerPrint}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#13293d] text-white text-sm font-medium hover:bg-[#1e3f5a] transition shadow-sm"
+                    >
+                      <Icon name="printer" className="w-4 h-4 text-[#e08b5b]" />
+                      Imprimir Relatório / PDF
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filtros do Relatório */}
+                <div className="no-print bg-white rounded-xl p-4 sm:p-5 border border-stone-200 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">
+                    <Icon name="filter" className="w-3.5 h-3.5 text-[#c26d43]" />
+                    Parâmetros de Filtragem do Relatório
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Empreendimento
+                      </label>
+                      <select
+                        value={repEmpreendimento}
+                        onChange={(e) => setRepEmpreendimento(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                      >
+                        <option value="Todos">Todos os Empreendimentos</option>
+                        {empreendimentosDisponiveis.map((emp) => (
+                          <option key={emp} value={emp}>
+                            {emp}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                      <select
+                        value={repStatus}
+                        onChange={(e) => setRepStatus(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                      >
+                        <option value="Todos">Todos os Status</option>
+                        {STATUS_OPCOES.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Enquadramento Técnico
+                      </label>
+                      <select
+                        value={repEnquadramento}
+                        onChange={(e) => setRepEnquadramento(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                      >
+                        <option value="Todos">Todos os Enquadramentos</option>
+                        {ENQUADRAMENTOS_OPCOES.map((enq) => (
+                          <option key={enq} value={enq}>
+                            {enq}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Data Inicial (Abertura)
+                      </label>
+                      <input
+                        type="date"
+                        value={repDataInicio}
+                        onChange={(e) => setRepDataInicio(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Data Final (Abertura)
+                      </label>
+                      <input
+                        type="date"
+                        value={repDataFim}
+                        onChange={(e) => setRepDataFim(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Documento do Relatório Gerencial */}
+                <div className="print-only-container bg-white rounded-xl border border-stone-200 shadow-sm p-6 sm:p-8 space-y-6">
+                  <div className="border-b-2 border-[#13293d] pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-lg bg-[#13293d] text-white flex items-center justify-center font-bold text-xl">
+                        CA
+                      </div>
+                      <div>
+                        <h1 className="text-lg font-bold text-[#13293d] tracking-tight uppercase">
+                          Casaalta Construções e Incorporações
+                        </h1>
+                        <p className="text-xs font-semibold text-[#b85d32] uppercase tracking-wider">
+                          Relatório Gerencial de Assistência Técnica e Pós-Obra
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
+                      <p>
+                        <strong>Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às{' '}
+                        {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p>
+                        <strong>Empreendimento:</strong> {repEmpreendimento}
+                      </p>
+                      <p>
+                        <strong>Período:</strong>{' '}
+                        {repDataInicio || repDataFim
+                          ? `${repDataInicio ? formatDateBR(repDataInicio) : 'Início'} até ${
+                              repDataFim ? formatDateBR(repDataFim) : 'Atual'
+                            }`
+                          : 'Todo o histórico'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Resumo Executivo */}
+                  <div className="print-page-break-inside-avoid space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[#13293d]">
+                      1. Resumo Executivo & Indicadores ({relatorioStats.total} Chamados)
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <div className="bg-stone-50/70 rounded-lg p-4 border border-stone-200">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
+                          Enquadramento de Garantia
+                        </h4>
+                        <div className="space-y-3">
+                          {Object.entries(relatorioStats.byEnqResumo).map(([label, count]) => {
+                            const pct =
+                              relatorioStats.total > 0
+                                ? Math.round((count / relatorioStats.total) * 100)
+                                : 0;
+                            const barColor = label.includes('Procedente')
+                              ? 'bg-teal-700'
+                              : label.includes('Condomínio')
+                              ? 'bg-indigo-700'
+                              : 'bg-[#c26d43]';
+                            return (
+                              <div key={label}>
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="font-medium text-slate-700">{label}</span>
+                                  <span className="font-bold text-slate-900">
+                                    {count} ({pct}%)
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full ${barColor} rounded-full`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="bg-stone-50/70 rounded-lg p-4 border border-stone-200">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
+                          Distribuição por Status
+                        </h4>
+                        <div className="space-y-2.5">
+                          {Object.entries(relatorioStats.byStatus)
+                            .filter(([, count]) => count > 0 || relatorioStats.total === 0)
+                            .map(([st, count]) => {
+                              const pct =
+                                relatorioStats.total > 0
+                                  ? Math.round((count / relatorioStats.total) * 100)
+                                  : 0;
+                              return (
+                                <div key={st}>
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <span className="font-medium text-slate-700">{st}</span>
+                                    <span className="font-bold text-slate-900">
+                                      {count} ({pct}%)
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-[#13293d] rounded-full"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      <div className="bg-stone-50/70 rounded-lg p-4 border border-stone-200">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
+                          Incidência por Disciplina / Categoria
+                        </h4>
+                        <div className="space-y-2.5">
+                          {Object.entries(relatorioStats.byCategoria)
+                            .filter(([, count]) => count > 0)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([cat, count]) => {
+                              const pct =
+                                relatorioStats.total > 0
+                                  ? Math.round((count / relatorioStats.total) * 100)
+                                  : 0;
+                              return (
+                                <div key={cat}>
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <span className="font-medium text-slate-700 truncate pr-2">
+                                      {cat}
+                                    </span>
+                                    <span className="font-bold text-slate-900 flex-shrink-0">
+                                      {count} ({pct}%)
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-slate-600 rounded-full"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabela Analítica */}
+                  <div className="space-y-3 pt-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[#13293d]">
+                      2. Relação Analítica de Chamados e Pareceres Técnicos
+                    </h3>
+
+                    <div className="overflow-x-auto border border-stone-300 rounded-lg">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-[#13293d] text-white">
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700 w-24">
+                              Protocolo
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700 w-24">
+                              Abertura
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700 w-40">
+                              Empreendimento / Unidade
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700">
+                              Resumo da Solicitação
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700">
+                              Parecer Técnico / Enquadramento
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold border-r border-slate-700 w-36">
+                              Registro Fotográfico
+                            </th>
+                            <th className="py-2.5 px-3 font-semibold w-28">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-200">
+                          {relatorioChamados.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-8 text-center text-slate-500">
+                                Nenhum registro encontrado para os filtros selecionados.
+                              </td>
+                            </tr>
+                          ) : (
+                            relatorioChamados.map((c, idx) => {
+                              const normalizedLink = normalizeUrl(c.linkFotos);
+                              return (
+                                <tr
+                                  key={c.id}
+                                  className={`print-page-break-inside-avoid ${
+                                    idx % 2 === 0 ? 'bg-white' : 'bg-stone-50/60'
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-3 font-mono font-bold text-[#13293d] align-top border-r border-stone-200">
+                                    {c.protocolo}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-700 align-top border-r border-stone-200">
+                                    {formatDateBR(c.dataAbertura)}
+                                  </td>
+                                  <td className="py-2.5 px-3 align-top border-r border-stone-200">
+                                    <p className="font-bold text-slate-900">{c.empreendimento}</p>
+                                    <p className="text-slate-600 mt-0.5">{c.unidade}</p>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">{c.categoria}</p>
+                                    {c.email && (
+                                      <p className="text-[10px] text-slate-500 mt-0.5 break-all">
+                                        {c.email}
+                                      </p>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-700 align-top border-r border-stone-200 leading-relaxed">
+                                    {c.descricaoSolicitacao}
+                                  </td>
+                                  <td className="py-2.5 px-3 align-top border-r border-stone-200 leading-relaxed">
+                                    <span
+                                      className={`inline-block font-semibold px-2 py-0.5 rounded border text-[10px] mb-1 ${getEnquadramentoBadgeStyle(
+                                        c.enquadramento
+                                      )}`}
+                                    >
+                                      {c.enquadramento}
+                                    </span>
+                                    <p className="text-slate-700">
+                                      {c.parecerTecnico || 'Em análise técnica.'}
+                                    </p>
+                                  </td>
+                                  <td className="py-2.5 px-3 align-top border-r border-stone-200">
+                                    {normalizedLink ? (
+                                      <a
+                                        href={normalizedLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={normalizedLink}
+                                        className="inline-flex items-center gap-1 text-sky-800 hover:underline font-semibold"
+                                      >
+                                        <Icon name="camera" className="w-3.5 h-3.5 text-sky-700" />
+                                        <span>
+                                          {getShortPhotoLabel(c.protocolo, c.unidade)}
+                                        </span>
+                                      </a>
+                                    ) : (
+                                      <span className="text-slate-400">Sem link</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 align-top">
+                                    <span
+                                      className={`inline-block font-semibold px-2 py-0.5 rounded border text-[11px] ${getStatusBadgeStyle(
+                                        c.status
+                                      )}`}
+                                    >
+                                      {c.status}
+                                    </span>
+                                    {c.tecnico && (
+                                      <p className="text-[11px] text-slate-500 mt-1">Resp: {c.tecnico}</p>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-stone-200 flex flex-col sm:flex-row justify-between text-[11px] text-slate-500">
+                    <span>Casaalta Construções • Departamento de Engenharia e Pós-Obra</span>
+                    <span>Documento gerado eletronicamente para controle gerencial interno</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* VISUALIZADOR E IMPRESSÃO DE ORDEM DE SERVIÇO (OS) A4 */}
+          {osPreviewChamado && (
+            <div className="flex-1 bg-stone-200/80 min-h-screen p-4 sm:p-8 print:p-0 print:bg-white">
+              <div className="no-print max-w-4xl mx-auto mb-5 bg-[#13293d] text-white px-5 py-3.5 rounded-xl shadow-lg flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Icon name="file-text" className="w-5 h-5 text-[#e08b5b]" />
+                  <div>
+                    <h2 className="text-sm font-bold">
+                      Visualização de Ordem de Serviço • {osPreviewChamado.protocolo}
+                    </h2>
+                    <p className="text-xs text-stone-300">
+                      Layout configurado para folha A4 (210mm × 297mm)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={triggerPrint}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#c26d43] hover:bg-[#b05d35] text-white text-sm font-semibold transition shadow"
+                  >
+                    <Icon name="printer" className="w-4 h-4" />
+                    Imprimir / Salvar PDF
+                  </button>
+                  <button
+                    onClick={() => setOsPreviewChamado(null)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition"
+                  >
+                    <Icon name="x" className="w-4 h-4" />
+                    Voltar
+                  </button>
+                </div>
+              </div>
+
+              <div className="print-only-container max-w-4xl mx-auto bg-white shadow-xl border border-stone-300 p-6 sm:p-10 text-slate-900">
+                <div className="border-2 border-slate-800">
+                  <div className="grid grid-cols-12 border-b-2 border-slate-800">
+                    <div className="col-span-8 p-4 border-r-2 border-slate-800 flex items-center gap-4">
+                      <div className="w-14 h-14 bg-[#13293d] text-white flex items-center justify-center font-bold text-2xl tracking-tight rounded">
+                        CA
+                      </div>
+                      <div>
+                        <h1 className="text-lg font-extrabold tracking-tight text-[#13293d] uppercase">
+                          CASAALTA CONSTRUÇÕES
+                        </h1>
+                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Engenharia de Pós-Obra & Assistência Técnica
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Ordem de Serviço Interna e Termo de Vistoria / Execução
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="col-span-4 p-4 bg-stone-50 flex flex-col justify-center">
+                      <div className="flex justify-between items-center border-b border-slate-300 pb-1.5 mb-1.5">
+                        <span className="text-[10px] font-bold uppercase text-slate-500">Protocolo</span>
+                        <span className="font-mono text-sm font-extrabold text-[#13293d]">
+                          {osPreviewChamado.protocolo}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500">Abertura:</span>
+                        <span className="font-semibold">
+                          {formatDateBR(osPreviewChamado.dataAbertura)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-0.5">
+                        <span className="text-slate-500">Previsão:</span>
+                        <span className="font-semibold">
+                          {formatDateBR(osPreviewChamado.dataPrevista)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-0.5">
+                        <span className="text-slate-500">Status:</span>
+                        <span className="font-bold text-[#b85d32]">{osPreviewChamado.status}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 border-b border-slate-300 text-xs">
+                    <div className="col-span-7 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Empreendimento
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm">
+                        {osPreviewChamado.empreendimento}
+                      </span>
+                    </div>
+                    <div className="col-span-5 p-2.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Unidade / Localização
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm">
+                        {osPreviewChamado.unidade}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 border-b border-slate-300 text-xs">
+                    <div className="col-span-5 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Solicitante / Proprietário
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {osPreviewChamado.solicitante}
+                      </span>
+                    </div>
+                    <div className="col-span-3 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Telefone / Contato
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {osPreviewChamado.telefone || 'Não informado'}
+                      </span>
+                    </div>
+                    <div className="col-span-4 p-2.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        E-mail
+                      </span>
+                      <span className="font-semibold text-slate-900 break-all">
+                        {osPreviewChamado.email || 'Não informado'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 text-xs bg-stone-50 border-b border-slate-300">
+                    <div className="col-span-5 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Disciplina / Categoria Técnica
+                      </span>
+                      <span className="font-bold text-slate-900">{osPreviewChamado.categoria}</span>
+                    </div>
+                    <div className="col-span-7 p-2.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Técnico / Prestador Designado
+                      </span>
+                      <span className="font-bold text-[#13293d]">
+                        {osPreviewChamado.tecnico || 'A definir pela Engenharia'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 text-xs bg-white">
+                    <div className="col-span-4 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Data do Habite-se
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {empreendimentoByName[osPreviewChamado.empreendimento]?.dataHabiteSe
+                          ? formatDateBR(
+                              empreendimentoByName[osPreviewChamado.empreendimento].dataHabiteSe
+                            )
+                          : 'Não informada'}
+                      </span>
+                    </div>
+                    <div className="col-span-4 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Entrega do Condomínio
+                      </span>
+                      <span className="font-semibold text-slate-900">
+                        {empreendimentoByName[osPreviewChamado.empreendimento]?.dataEntregaCondominio
+                          ? formatDateBR(
+                              empreendimentoByName[osPreviewChamado.empreendimento]
+                                .dataEntregaCondominio
+                            )
+                          : 'Não informada'}
+                      </span>
+                    </div>
+                    <div className="col-span-4 p-2.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Entrega das Chaves (Unidade)
+                      </span>
+                      <span className="font-bold text-[#13293d]">
+                        {osPreviewChamado.dataEntregaChaves
+                          ? formatDateBR(osPreviewChamado.dataEntregaChaves)
+                          : 'Não informada'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {(normalizeUrl(osPreviewChamado.linkFotos) ||
+                    normalizeUrl(osPreviewChamado.linkTermoRecebimento)) && (
+                    <div className="p-2.5 border-t border-slate-300 bg-sky-50/40 text-xs space-y-2">
+                      {normalizeUrl(osPreviewChamado.linkFotos) && (
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                              Acervo Fotográfico da Vistoria (Google Drive)
+                            </span>
+                            <a
+                              href={normalizeUrl(osPreviewChamado.linkFotos)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={normalizeUrl(osPreviewChamado.linkFotos)}
+                              className="inline-flex items-center gap-1.5 font-bold text-sky-900 underline mt-0.5"
+                            >
+                              <Icon name="camera" className="w-3.5 h-3.5 text-sky-700" />
+                              <span>
+                                {getShortPhotoLabel(
+                                  osPreviewChamado.protocolo,
+                                  osPreviewChamado.unidade
+                                )}
+                              </span>
+                              <Icon name="external-link" className="w-3 h-3 no-print" />
+                            </a>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono break-all">
+                            {normalizeUrl(osPreviewChamado.linkFotos)}
+                          </span>
+                        </div>
+                      )}
+
+                      {normalizeUrl(osPreviewChamado.linkTermoRecebimento) && (
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pt-1.5 border-t border-slate-200/70">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                              Termo de Recebimento do Imóvel pelo Cliente
+                            </span>
+                            <a
+                              href={normalizeUrl(osPreviewChamado.linkTermoRecebimento)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={normalizeUrl(osPreviewChamado.linkTermoRecebimento)}
+                              className="inline-flex items-center gap-1.5 font-bold text-emerald-900 underline mt-0.5"
+                            >
+                              <Icon name="file-check-2" className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>{getShortTermoLabel(osPreviewChamado.unidade)}</span>
+                              <Icon name="external-link" className="w-3 h-3 no-print" />
+                            </a>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono break-all">
+                            {normalizeUrl(osPreviewChamado.linkTermoRecebimento)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5 border border-slate-400">
+                  <div className="bg-slate-800 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+                    1. Relato da Solicitação do Cliente
+                  </div>
+                  <div className="p-3.5 text-xs text-slate-800 leading-relaxed min-h-[60px]">
+                    {osPreviewChamado.descricaoSolicitacao}
+                  </div>
+                </div>
+
+                <div className="mt-4 border border-slate-400">
+                  <div className="bg-slate-800 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider flex justify-between items-center">
+                    <span>2. Diagnóstico / Parecer Técnico da Engenharia</span>
+                    <span className="text-[11px] bg-white text-slate-900 px-2 py-0.5 rounded font-bold">
+                      {osPreviewChamado.enquadramento}
+                    </span>
+                  </div>
+                  <div className="p-3.5 text-xs text-slate-800 leading-relaxed min-h-[75px]">
+                    {osPreviewChamado.parecerTecnico ||
+                      'Vistoria técnica em andamento. Preencher diagnóstico após inspeção no local.'}
+                  </div>
+                </div>
+
+                <div className="mt-4 border border-slate-400">
+                  <div className="bg-slate-800 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+                    3. Escopo de Serviços a Executar e Materiais Especificados
+                  </div>
+                  <div className="p-3.5 text-xs text-slate-800 leading-relaxed min-h-[85px]">
+                    {osPreviewChamado.escopoExecucao ||
+                      'Conforme orientação do Engenheiro Responsável no local.'}
+                  </div>
+                </div>
+
+                <div className="mt-4 border border-slate-400 print-page-break-inside-avoid">
+                  <div className="bg-slate-800 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider">
+                    4. Agendamento e Vistoria Técnica
+                  </div>
+                  <div className="grid grid-cols-12 text-xs border-b border-slate-300">
+                    <div className="col-span-6 p-3 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Data e Horário da Vistoria Técnica
+                      </span>
+                      <span className="font-bold text-slate-900 mt-0.5 block">
+                        {osPreviewChamado.dataVistoria
+                          ? `${formatDateBR(osPreviewChamado.dataVistoria)}${
+                              osPreviewChamado.horarioVistoria
+                                ? ` às ${osPreviewChamado.horarioVistoria}`
+                                : ''
+                            }`
+                          : '____/____/2026 • Horário: ____:____'}
+                      </span>
+                    </div>
+
+                    <div className="col-span-6 p-3">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Data e Período Agendado para Execução
+                      </span>
+                      <span className="font-bold text-[#13293d] mt-0.5 block">
+                        {osPreviewChamado.dataAgendamento
+                          ? `${formatDateBR(osPreviewChamado.dataAgendamento)}${
+                              osPreviewChamado.horarioAgendamento
+                                ? ` (${osPreviewChamado.horarioAgendamento})`
+                                : ''
+                            }`
+                          : osPreviewChamado.horarioAgendamento ||
+                            '____/____/2026 • Período: ________________'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 text-xs bg-stone-50/80">
+                    <div className="col-span-6 p-2.5 border-r border-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Registro Presencial — Início do Atendimento
+                      </span>
+                      <span className="text-slate-700 mt-1 block">
+                        Data: ____/____/2026 &nbsp;&nbsp;|&nbsp;&nbsp; Hora Entrada: ____:____
+                      </span>
+                    </div>
+
+                    <div className="col-span-6 p-2.5">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                        Registro Presencial — Término do Atendimento
+                      </span>
+                      <span className="text-slate-700 mt-1 block">
+                        Data: ____/____/2026 &nbsp;&nbsp;|&nbsp;&nbsp; Hora Saída: ____:____
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 border border-slate-400 print-page-break-inside-avoid">
+                  <div className="bg-slate-200 text-slate-900 px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-b border-slate-400">
+                    5. Termo de Recebimento e Assinaturas
+                  </div>
+                  <div className="p-4 space-y-6">
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Declaramos que os serviços descritos nesta Ordem de Serviço foram devidamente vistoriados e/ou executados dentro dos padrões técnicos estabelecidos pela Casaalta Construções, encontrando-se o ambiente limpo e em perfeitas condições de uso.
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-6 pt-6 text-center text-xs">
+                      <div>
+                        <div className="border-t border-slate-800 pt-1.5 font-semibold text-slate-900">
+                          Engenharia Pós-Obra
+                        </div>
+                        <div className="text-[10px] text-slate-500">Casaalta Construções</div>
+                      </div>
+
+                      <div>
+                        <div className="border-t border-slate-800 pt-1.5 font-semibold text-slate-900">
+                          Técnico / Prestador Executor
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {osPreviewChamado.tecnico || 'Assinatura do Executor'}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="border-t border-slate-800 pt-1.5 font-semibold text-slate-900">
+                          Proprietário / Síndico
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          Data: ____/____/2026 • Hora: ____:____
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAIS */}
+          {isFormModalOpen && (
+            <ChamadoFormModal
+              initialData={editingChamado}
+              nextProtocolo={gerarProximoProtocolo()}
+              empreendimentosPermitidos={empreendimentosDisponiveis}
+              empreendimentoByName={empreendimentoByName}
+              allChamados={chamados}
+              onOpenUnitHistory={(emp, unid) =>
+                setUnitHistoryTarget({ empreendimento: emp, unidade: unid })
+              }
+              onClose={() => {
+                setIsFormModalOpen(false);
+                setEditingChamado(null);
+              }}
+              onSave={handleSaveChamado}
+            />
+          )}
+
+          {editingEmpreendimento && (
+            <EmpreendimentoEditModal
+              empreendimento={editingEmpreendimento}
+              onClose={() => setEditingEmpreendimento(null)}
+              onSave={handleSaveEmpreendimento}
+            />
+          )}
+
+          {unitHistoryTarget && (
+            <UnitHistoryModal
+              empreendimento={unitHistoryTarget.empreendimento}
+              unidade={unitHistoryTarget.unidade}
+              chamados={chamados}
+              onClose={() => setUnitHistoryTarget(null)}
+              onSelectOS={(chamado) => {
+                setUnitHistoryTarget(null);
+                setOsPreviewChamado(chamado);
+              }}
+              onEditChamado={(chamado) => {
+                setUnitHistoryTarget(null);
+                handleOpenEditModal(chamado);
+              }}
+            />
+          )}
+
+          {deleteConfirmChamado && (
+            <div className="no-print fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-stone-200">
+                <div className="flex items-center gap-3 text-rose-700 mb-3">
+                  <div className="p-2.5 rounded-full bg-rose-100">
+                    <Icon name="alert-triangle" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">Excluir Chamado</h3>
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Tem certeza que deseja excluir permanentemente o chamado{' '}
+                  <strong className="text-slate-900">{deleteConfirmChamado.protocolo}</strong> (
+                  {deleteConfirmChamado.empreendimento} - {deleteConfirmChamado.unidade})? Esta ação não poderá ser desfeita.
+                </p>
+                <div className="flex justify-end gap-2.5 mt-6">
+                  <button
+                    onClick={() => setDeleteConfirmChamado(null)}
+                    className="px-4 py-2 rounded-lg border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDeleteChamado}
+                    className="px-4 py-2 rounded-lg bg-rose-700 text-white text-sm font-medium hover:bg-rose-800"
+                  >
+                    Confirmar Exclusão
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {restoreConfirmOpen && (
+            <div className="no-print fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-stone-200">
+                <div className="flex items-center gap-3 text-amber-700 mb-3">
+                  <div className="p-2.5 rounded-full bg-amber-100">
+                    <Icon name="rotate-ccw" className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">Restaurar Dados de Exemplo</h3>
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Isso substituirá os chamados atuais pelos chamados modelo dos 5 empreendimentos oficiais da{' '}
+                  <strong>Casaalta Construções</strong>. Deseja continuar?
+                </p>
+                <div className="flex justify-end gap-2.5 mt-6">
+                  <button
+                    onClick={() => setRestoreConfirmOpen(false)}
+                    className="px-4 py-2 rounded-lg border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleRestoreDefaults}
+                    className="px-4 py-2 rounded-lg bg-[#13293d] text-white text-sm font-medium hover:bg-[#1e3f5a]"
+                  >
+                    Restaurar Exemplos
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================================================
+    // MODAL DE CADASTRO E EDIÇÃO DE CHAMADO
+    // ========================================================================
+    function ChamadoFormModal({
+      initialData,
+      nextProtocolo,
+      empreendimentosPermitidos,
+      empreendimentoByName,
+      allChamados,
+      onOpenUnitHistory,
+      onClose,
+      onSave
+    }) {
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [formData, setFormData] = useState({
+        protocolo: initialData?.protocolo || nextProtocolo,
+        dataAbertura: initialData?.dataAbertura || today,
+        dataPrevista: initialData?.dataPrevista || '',
+        dataEntregaChaves: initialData?.dataEntregaChaves || '',
+        linkTermoRecebimento: initialData?.linkTermoRecebimento || '',
+        dataVistoria: initialData?.dataVistoria || '',
+        horarioVistoria: initialData?.horarioVistoria || '',
+        dataAgendamento: initialData?.dataAgendamento || '',
+        horarioAgendamento: initialData?.horarioAgendamento || '',
+        empreendimento:
+          initialData?.empreendimento &&
+          empreendimentosPermitidos.includes(initialData.empreendimento)
+            ? initialData.empreendimento
+            : empreendimentosPermitidos[0],
+        unidade: initialData?.unidade || '',
+        solicitante: initialData?.solicitante || '',
+        telefone: initialData?.telefone || '',
+        email: initialData?.email || '',
+        categoria: initialData?.categoria || CATEGORIAS_TECNICAS[0],
+        status: initialData?.status || 'Aberto',
+        enquadramento: initialData?.enquadramento || ENQUADRAMENTOS_OPCOES[0],
+        tecnico: initialData?.tecnico || '',
+        linkFotos: initialData?.linkFotos || '',
+        descricaoSolicitacao: initialData?.descricaoSolicitacao || '',
+        parecerTecnico: initialData?.parecerTecnico || '',
+        escopoExecucao: initialData?.escopoExecucao || ''
+      });
+
+      const [errorMsg, setErrorMsg] = useState('');
+
+      const unitPreviousChamados = useMemo(() => {
+        const unitTrimmed = formData.unidade.trim().toLowerCase();
+        if (!unitTrimmed) return [];
+        return allChamados
+          .filter(
+            (c) =>
+              c.id !== initialData?.id &&
+              c.empreendimento === formData.empreendimento &&
+              c.unidade.trim().toLowerCase() === unitTrimmed
+          )
+          .sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || ''));
+      }, [allChamados, formData.empreendimento, formData.unidade, initialData?.id]);
+
+      useEffect(() => {
+        if (initialData || unitPreviousChamados.length === 0) return;
+        const latest = unitPreviousChamados[0];
+        setFormData((prev) => ({
+          ...prev,
+          solicitante: prev.solicitante.trim() ? prev.solicitante : latest.solicitante || '',
+          telefone: prev.telefone.trim() ? prev.telefone : latest.telefone || '',
+          email: prev.email.trim() ? prev.email : latest.email || '',
+          dataEntregaChaves: prev.dataEntregaChaves
+            ? prev.dataEntregaChaves
+            : latest.dataEntregaChaves || '',
+          linkTermoRecebimento: prev.linkTermoRecebimento.trim()
+            ? prev.linkTermoRecebimento
+            : latest.linkTermoRecebimento || ''
+        }));
+      }, [unitPreviousChamados, initialData]);
+
+      const handleChange = (field, value) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (errorMsg) setErrorMsg('');
+      };
+
+      const normalizedPhotoPreview = normalizeUrl(formData.linkFotos);
+      const normalizedTermoPreview = normalizeUrl(formData.linkTermoRecebimento);
+      const selectedEmpInfo = empreendimentoByName?.[formData.empreendimento];
+      const selectedEmpDocsUrl = normalizeUrl(selectedEmpInfo?.linkDocumentos);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (
+          !formData.empreendimento.trim() ||
+          !formData.unidade.trim() ||
+          !formData.solicitante.trim() ||
+          !formData.descricaoSolicitacao.trim()
+        ) {
+          setErrorMsg(
+            'Por favor, preencha os campos obrigatórios: Empreendimento, Unidade, Solicitante e Descrição da Solicitação.'
+          );
+          return;
+        }
+        onSave(formData);
+      };
+
+      return (
+        <div className="no-print fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-stone-200 my-auto overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="bg-[#13293d] text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e08b5b]">
+                  Casaalta Construções • Engenharia de Pós-Obra
+                </span>
+                <h3 className="text-lg font-bold">
+                  {initialData
+                    ? `Editar Chamado & Parecer Técnico (${formData.protocolo})`
+                    : `Novo Chamado de Pós-Obra (${formData.protocolo})`}
+                </h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg text-stone-300 hover:bg-white/10 hover:text-white transition"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
+              {errorMsg && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-lg text-xs font-medium flex items-center gap-2">
+                  <Icon name="alert-triangle" className="w-4 h-4" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-stone-200 pb-1.5 mb-3">
+                  1. Identificação do Empreendimento e Solicitante
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Protocolo / OS
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.protocolo}
+                      onChange={(e) => handleChange('protocolo', e.target.value)}
+                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-stone-100 border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Data de Abertura *
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataAbertura}
+                      onChange={(e) => handleChange('dataAbertura', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Previsão / Conclusão
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataPrevista}
+                      onChange={(e) => handleChange('dataPrevista', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Empreendimento *
+                    </label>
+                    <select
+                      value={formData.empreendimento}
+                      onChange={(e) => handleChange('empreendimento', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg font-medium"
+                    >
+                      {empreendimentosPermitidos.map((emp) => (
+                        <option key={emp} value={emp}>
+                          {emp}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Unidade / Local *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.unidade}
+                      onChange={(e) => handleChange('unidade', e.target.value)}
+                      placeholder="Ex: Torre A - Apto 645, Cobertura, Hall"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-stone-50 rounded-lg p-3.5 border border-stone-200 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+                      Data do Habite-se (Empreendimento)
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                      {selectedEmpInfo?.dataHabiteSe
+                        ? formatDateBR(selectedEmpInfo.dataHabiteSe)
+                        : 'Não cadastrada'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
+                      Entrega do Condomínio
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                      {selectedEmpInfo?.dataEntregaCondominio
+                        ? formatDateBR(selectedEmpInfo.dataEntregaCondominio)
+                        : 'Não cadastrada'}
+                    </span>
+                  </div>
+
+                  <div className="sm:text-right">
+                    {selectedEmpDocsUrl ? (
+                      <a
+                        href={selectedEmpDocsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={selectedEmpDocsUrl}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-stone-300 text-slate-800 hover:bg-stone-100 text-xs font-semibold transition"
+                      >
+                        <Icon name="folder-open" className="w-3.5 h-3.5 text-[#c26d43]" />
+                        <span>Docs Habite-se / Entrega</span>
+                        <Icon name="external-link" className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        Edite na aba Empreendimentos
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-emerald-50/50 rounded-lg p-3.5 border border-emerald-200/80 grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                      <Icon name="key-round" className="w-3.5 h-3.5 text-amber-700" />
+                      Entrega das Chaves (Unidade)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataEntregaChaves}
+                      onChange={(e) => handleChange('dataEntregaChaves', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-8">
+                    <label className="block text-xs font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                      <Icon name="file-check-2" className="w-3.5 h-3.5 text-emerald-700" />
+                      Link do Termo de Recebimento do Imóvel (Drive)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.linkTermoRecebimento}
+                      onChange={(e) => handleChange('linkTermoRecebimento', e.target.value)}
+                      placeholder="Cole aqui o link do Termo de Recebimento assinado pelo cliente..."
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                    {normalizedTermoPreview && (
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="text-slate-600">Documento vinculado:</span>
+                        <a
+                          href={normalizedTermoPreview}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={normalizedTermoPreview}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition"
+                        >
+                          <Icon name="file-check-2" className="w-3.5 h-3.5" />
+                          <span>{getShortTermoLabel(formData.unidade)}</span>
+                          <Icon name="external-link" className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {unitPreviousChamados.length > 0 && (
+                  <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-amber-950">
+                    <div className="flex items-center gap-2">
+                      <Icon name="info" className="w-4 h-4 text-amber-700" />
+                      <span>
+                        Esta unidade já possui{' '}
+                        <strong>
+                          {unitPreviousChamados.length}{' '}
+                          {unitPreviousChamados.length === 1
+                            ? 'chamado anterior registrado'
+                            : 'chamados anteriores registrados'}
+                        </strong>{' '}
+                        neste empreendimento.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenUnitHistory(formData.empreendimento, formData.unidade.trim())
+                      }
+                      className="inline-flex items-center gap-1.5 font-semibold text-[#b85d32] hover:underline flex-shrink-0"
+                    >
+                      <Icon name="history" className="w-3.5 h-3.5" />
+                      Visualizar Dossiê da Unidade
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Nome do Solicitante / Proprietário *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.solicitante}
+                      onChange={(e) => handleChange('solicitante', e.target.value)}
+                      placeholder="Nome completo do cliente ou síndico"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Telefone / WhatsApp
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.telefone}
+                      onChange={(e) => handleChange('telefone', e.target.value)}
+                      placeholder="(41) 99999-9999"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      E-mail do Cliente
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      placeholder="cliente@exemplo.com.br"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-sky-50/60 p-3.5 rounded-lg border border-sky-200/80">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                    <Icon name="folder-open" className="w-3.5 h-3.5 text-sky-700" />
+                    Link da Pasta / Fotos (Google Drive)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.linkFotos}
+                    onChange={(e) => handleChange('linkFotos', e.target.value)}
+                    placeholder="Cole aqui o link da pasta do Google Drive (ex: https://drive.google.com/drive/folders/...)"
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                  />
+                  {normalizedPhotoPreview && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-600">Exibição encurtada no sistema e na OS:</span>
+                      <a
+                        href={normalizedPhotoPreview}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={normalizedPhotoPreview}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-sky-700 text-white font-semibold hover:bg-sky-800 transition"
+                      >
+                        <Icon name="camera" className="w-3.5 h-3.5" />
+                        <span>{getShortPhotoLabel(formData.protocolo, formData.unidade)}</span>
+                        <Icon name="external-link" className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-stone-200 pb-1.5 mb-3">
+                  2. Classificação Técnica, Status e Enquadramento de Garantia
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Categoria Técnica
+                    </label>
+                    <select
+                      value={formData.categoria}
+                      onChange={(e) => handleChange('categoria', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    >
+                      {CATEGORIAS_TECNICAS.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Status do Chamado
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => handleChange('status', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg font-medium"
+                    >
+                      {STATUS_OPCOES.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Enquadramento de Garantia (NBR 15575)
+                    </label>
+                    <select
+                      value={formData.enquadramento}
+                      onChange={(e) => handleChange('enquadramento', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg font-medium"
+                    >
+                      {ENQUADRAMENTOS_OPCOES.map((enq) => (
+                        <option key={enq} value={enq}>
+                          {enq}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Técnico / Prestador Designado
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.tecnico}
+                      onChange={(e) => handleChange('tecnico', e.target.value)}
+                      placeholder="Ex: Sérgio (Esquadrias), Eng. Felipe Martins"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-stone-200 pb-1.5 mb-3">
+                  3. Agendamento e Vistoria Técnica (Composição da OS)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Data da Vistoria Técnica
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataVistoria}
+                      onChange={(e) => handleChange('dataVistoria', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Horário da Vistoria
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.horarioVistoria}
+                      onChange={(e) => handleChange('horarioVistoria', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Data Agendada (Execução)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataAgendamento}
+                      onChange={(e) => handleChange('dataAgendamento', e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Horário / Período Execução
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.horarioAgendamento}
+                      onChange={(e) => handleChange('horarioAgendamento', e.target.value)}
+                      placeholder="Ex: 08:30 às 12:00 / Manhã"
+                      className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-stone-200 pb-1.5">
+                  4. Detalhamento Técnico e Ordem de Serviço
+                </h4>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Descrição da Solicitação do Cliente *
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.descricaoSolicitacao}
+                    onChange={(e) => handleChange('descricaoSolicitacao', e.target.value)}
+                    placeholder="Descreva o problema relatado pelo proprietário ou condomínio..."
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Parecer Técnico da Engenharia (Fundamentação / Vistoria / NBR 15575)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={formData.parecerTecnico}
+                    onChange={(e) => handleChange('parecerTecnico', e.target.value)}
+                    placeholder="Registre o diagnóstico técnico da vistoria, causas identificadas e justificativa de procedência ou improcedência..."
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Escopo de Execução / Materiais Necessários (Para Ordem de Serviço)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.escopoExecucao}
+                    onChange={(e) => handleChange('escopoExecucao', e.target.value)}
+                    placeholder="Descreva os procedimentos de reparo, materiais (ex: PU 40, rejunte, silicone) e recomendações para a equipe técnica..."
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-stone-200 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-lg border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-lg bg-[#13293d] text-white text-sm font-semibold hover:bg-[#1e3f5a] shadow-sm"
+                >
+                  Salvar Chamado
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================================================
+    // MODAL DE DOSSIÊ / HISTÓRICO CONSOLIDADO POR UNIDADE
+    // ========================================================================
+    function UnitHistoryModal({
+      empreendimento,
+      unidade,
+      chamados,
+      onClose,
+      onSelectOS,
+      onEditChamado
+    }) {
+      const unitRecords = useMemo(() => {
+        return chamados
+          .filter(
+            (c) =>
+              c.empreendimento?.trim().toLowerCase() === empreendimento.trim().toLowerCase() &&
+              c.unidade?.trim().toLowerCase() === unidade.trim().toLowerCase()
+          )
+          .sort((a, b) => (b.dataAbertura || '').localeCompare(a.dataAbertura || ''));
+      }, [chamados, empreendimento, unidade]);
+
+      const stats = useMemo(() => {
+        let procedentes = 0;
+        let improcedentes = 0;
+        let condominio = 0;
+        unitRecords.forEach((c) => {
+          if (c.enquadramento?.startsWith('Procedente')) procedentes += 1;
+          else if (c.enquadramento?.includes('Condomínio')) condominio += 1;
+          else improcedentes += 1;
+        });
+        return {
+          total: unitRecords.length,
+          procedentes,
+          improcedentes,
+          condominio
+        };
+      }, [unitRecords]);
+
+      return (
+        <div className="no-print fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-stone-200 my-auto overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[#13293d] text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e08b5b] flex items-center gap-1.5">
+                  <Icon name="history" className="w-3.5 h-3.5" />
+                  Dossiê Técnico Consolidado da Unidade
+                </span>
+                <h3 className="text-lg font-bold mt-0.5">
+                  {empreendimento} • <span className="text-stone-200">{unidade}</span>
+                </h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg text-stone-300 hover:bg-white/10 hover:text-white transition"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 grid grid-cols-2 sm:grid-cols-4 gap-3 flex-shrink-0">
+              <div className="bg-white p-3 rounded-lg border border-stone-200">
+                <span className="text-[11px] font-semibold uppercase text-slate-500 block">
+                  Total Chamados
+                </span>
+                <span className="text-xl font-bold text-slate-900">{stats.total}</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-stone-200">
+                <span className="text-[11px] font-semibold uppercase text-teal-700 block">
+                  Procedentes (Garantia)
+                </span>
+                <span className="text-xl font-bold text-teal-800">{stats.procedentes}</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-stone-200">
+                <span className="text-[11px] font-semibold uppercase text-rose-700 block">
+                  Improcedentes
+                </span>
+                <span className="text-xl font-bold text-rose-800">{stats.improcedentes}</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-stone-200">
+                <span className="text-[11px] font-semibold uppercase text-indigo-700 block">
+                  Condomínio
+                </span>
+                <span className="text-xl font-bold text-indigo-800">{stats.condominio}</span>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4">
+              {unitRecords.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-6">
+                  Nenhum registro histórico encontrado para esta unidade.
+                </p>
+              ) : (
+                <div className="relative border-l-2 border-stone-300 ml-3 space-y-5 pl-6">
+                  {unitRecords.map((item) => {
+                    const normalizedLink = normalizeUrl(item.linkFotos);
+                    return (
+                      <div
+                        key={item.id}
+                        className="relative bg-stone-50/80 rounded-xl p-4 border border-stone-200"
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#13293d] border-2 border-white shadow absolute -left-[31px] top-5" />
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#13293d] text-white">
+                              {item.protocolo}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-700">
+                              {formatDateBR(item.dataAbertura)}
+                            </span>
+                            <span className="text-xs text-slate-500">• {item.categoria}</span>
+                          </div>
+                          <span
+                            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${getStatusBadgeStyle(
+                              item.status
+                            )}`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span
+                            className={`text-[11px] font-medium px-2 py-0.5 rounded border ${getEnquadramentoBadgeStyle(
+                              item.enquadramento
+                            )}`}
+                          >
+                            {item.enquadramento}
+                          </span>
+                          {item.solicitante && (
+                            <span className="text-xs text-slate-600">
+                              Solicitante: <strong>{item.solicitante}</strong>
+                            </span>
+                          )}
+                          {item.email && (
+                            <a
+                              href={`mailto:${item.email}`}
+                              className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-[#13293d] underline decoration-dotted"
+                            >
+                              <Icon name="mail" className="w-3 h-3 text-slate-400" />
+                              <span>{item.email}</span>
+                            </a>
+                          )}
+                          {item.tecnico && (
+                            <span className="text-xs text-slate-600">
+                              Responsável: <strong>{item.tecnico}</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-slate-800 leading-relaxed">
+                          <strong>Solicitação:</strong> {item.descricaoSolicitacao}
+                        </p>
+                        {item.parecerTecnico && (
+                          <p className="text-xs text-slate-700 leading-relaxed mt-1.5 bg-white p-2.5 rounded border border-stone-200/80">
+                            <strong>Parecer Técnico:</strong> {item.parecerTecnico}
+                          </p>
+                        )}
+
+                        <div className="mt-3 pt-2.5 border-t border-stone-200/80 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            {normalizedLink ? (
+                              <a
+                                href={normalizedLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={normalizedLink}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100 text-xs font-semibold transition"
+                              >
+                                <Icon name="camera" className="w-3.5 h-3.5 text-sky-700" />
+                                <span>{getShortPhotoLabel(item.protocolo, item.unidade)}</span>
+                                <Icon name="external-link" className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">
+                                Sem pasta de fotos vinculada
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onSelectOS(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#13293d] text-white text-xs font-medium hover:bg-[#1e3f5a]"
+                            >
+                              <Icon name="file-text" className="w-3 h-3 text-[#e08b5b]" />
+                              Ver OS
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onEditChamado(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-stone-300 text-slate-700 text-xs font-medium hover:bg-stone-100"
+                            >
+                              <Icon name="edit-3" className="w-3 h-3" />
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-3.5 bg-stone-50 border-t border-stone-200 flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2 rounded-lg bg-[#13293d] text-white text-sm font-medium hover:bg-[#1e3f5a]"
+              >
+                Fechar Dossiê
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================================================
+    // MODAL DE EDIÇÃO DO EMPREENDIMENTO
+    // ========================================================================
+    function EmpreendimentoEditModal({ empreendimento, onClose, onSave }) {
+      const [formData, setFormData] = useState({
+        id: empreendimento.id,
+        nome: empreendimento.nome,
+        dataHabiteSe: empreendimento.dataHabiteSe || '',
+        dataEntregaCondominio: empreendimento.dataEntregaCondominio || '',
+        linkDocumentos: empreendimento.linkDocumentos || ''
+      });
+
+      const normalizedDocsPreview = normalizeUrl(formData.linkDocumentos);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+      };
+
+      return (
+        <div className="no-print fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-stone-200 overflow-hidden">
+            <div className="bg-[#13293d] text-white px-6 py-4 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e08b5b]">
+                  Cadastro Institucional • Casaalta Construções
+                </span>
+                <h3 className="text-lg font-bold">{empreendimento.nome}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-lg text-stone-300 hover:bg-white/10 hover:text-white transition"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Data do Habite-se
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dataHabiteSe}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, dataHabiteSe: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Data de Entrega do Condomínio
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dataEntregaCondominio}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, dataEntregaCondominio: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-sky-50/60 p-3.5 rounded-lg border border-sky-200/80">
+                <label className="block text-xs font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                  <Icon name="folder-open" className="w-3.5 h-3.5 text-sky-700" />
+                  Link da Pasta de Documentos (Habite-se, Ata de Entrega, etc.)
+                </label>
+                <input
+                  type="text"
+                  value={formData.linkDocumentos}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, linkDocumentos: e.target.value }))
+                  }
+                  placeholder="Cole aqui o link da pasta no Google Drive..."
+                  className="w-full px-3 py-2 text-sm bg-white border border-stone-300 rounded-lg"
+                />
+                {normalizedDocsPreview && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-600">Prévia do link salvo:</span>
+                    <a
+                      href={normalizedDocsPreview}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={normalizedDocsPreview}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-sky-700 text-white font-semibold hover:bg-sky-800 transition"
+                    >
+                      <Icon name="folder-open" className="w-3.5 h-3.5" />
+                      <span>{getShortEmpDocLabel(formData.nome)}</span>
+                      <Icon name="external-link" className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-stone-200 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-lg border border-stone-300 text-slate-700 text-sm font-medium hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg bg-[#13293d] text-white text-sm font-semibold hover:bg-[#1e3f5a]"
+                >
+                  Salvar Dados do Empreendimento
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
